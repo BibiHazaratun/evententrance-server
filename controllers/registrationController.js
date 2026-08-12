@@ -1,5 +1,6 @@
 const Registration = require('../models/Registration');
 const Event = require('../models/Event');
+const sendRegistrationEmail = require('../config/sendEmail');
 const QRCode = require('qrcode');
 
 // @desc    Register for an event (attendee)
@@ -35,6 +36,15 @@ const registerForEvent = async (req, res) => {
 
     // Generate QR code image (base64)
     const qrImage = await QRCode.toDataURL(registration.qrCode);
+    // Send confirmation email
+    await sendRegistrationEmail({
+      to: req.user.email,
+      name: req.user.name,
+      eventTitle: event.title,
+      eventDate: event.date,
+      venue: event.venue,
+      qrImage,
+    });
 
     res.status(201).json({
       _id: registration._id,
@@ -81,5 +91,17 @@ const markAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc    Get logged-in user's registrations
+// @route   GET /api/registrations/my
+const getMyRegistrations = async (req, res) => {
+  try {
+    const registrations = await Registration.find({ attendee: req.user._id })
+      .populate('event', 'title date venue');
 
-module.exports = { registerForEvent, markAttendance };
+    res.json(registrations);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { registerForEvent, markAttendance, getMyRegistrations };
