@@ -1,4 +1,5 @@
 const Event = require('../models/Event');
+const Registration = require('../models/Registration');
 
 // @desc    Create new event (organizer only)
 // @route   POST /api/events
@@ -51,5 +52,38 @@ const getEventById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc    Get organizer's dashboard (their events + stats)
+// @route   GET /api/events/dashboard/my
+const getMyEventsDashboard = async (req, res) => {
+  try {
+    const events = await Event.find({ organizer: req.user._id }).sort({ date: 1 });
 
-module.exports = { createEvent, getEvents, getEventById };
+    const eventIds = events.map((e) => e._id);
+
+    const registrations = await Registration.find({ event: { $in: eventIds } });
+
+    const dashboard = events.map((event) => {
+      const eventRegs = registrations.filter(
+        (r) => r.event.toString() === event._id.toString()
+      );
+      const attendedCount = eventRegs.filter((r) => r.attended).length;
+
+      return {
+        _id: event._id,
+        title: event.title,
+        date: event.date,
+        venue: event.venue,
+        seatLimit: event.seatLimit,
+        registeredCount: event.registeredCount,
+        attendedCount,
+        status: event.status,
+      };
+    });
+
+    res.json(dashboard);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { createEvent, getEvents, getEventById, getMyEventsDashboard };
