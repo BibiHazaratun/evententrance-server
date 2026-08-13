@@ -34,9 +34,7 @@ const registerForEvent = async (req, res) => {
     event.registeredCount += 1;
     await event.save();
 
-    // Generate QR code image (base64)
     const qrImage = await QRCode.toDataURL(registration.qrCode);
-    // Send confirmation email
     await sendRegistrationEmail({
       to: req.user.email,
       name: req.user.name,
@@ -56,6 +54,7 @@ const registerForEvent = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // @desc    Mark attendance by scanning QR code (organizer only)
 // @route   POST /api/registrations/scan/:qrCode
 const markAttendance = async (req, res) => {
@@ -68,7 +67,6 @@ const markAttendance = async (req, res) => {
       return res.status(404).json({ message: 'Invalid QR code' });
     }
 
-    // Ensure only the event's organizer can mark attendance
     if (registration.event.organizer.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized for this event' });
     }
@@ -91,6 +89,7 @@ const markAttendance = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // @desc    Get logged-in user's registrations
 // @route   GET /api/registrations/my
 const getMyRegistrations = async (req, res) => {
@@ -98,7 +97,17 @@ const getMyRegistrations = async (req, res) => {
     const registrations = await Registration.find({ attendee: req.user._id })
       .populate('event', 'title date venue');
 
-    res.json(registrations);
+    const registrationsWithQr = await Promise.all(
+      registrations.map(async (reg) => {
+        const qrImage = await QRCode.toDataURL(reg.qrCode);
+        return {
+          ...reg.toObject(),
+          qrImage,
+        };
+      })
+    );
+
+    res.json(registrationsWithQr);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
