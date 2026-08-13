@@ -103,6 +103,7 @@ const getMyRegistrations = async (req, res) => {
         return {
           ...reg.toObject(),
           qrImage,
+          debugVersion: 'v2-with-qr',
         };
       })
     );
